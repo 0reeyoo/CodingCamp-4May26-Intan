@@ -1,156 +1,118 @@
-<!doctype html>
-<html lang="id">
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pelacak Pengeluaran</title>
+  <title>Focus Dashboard</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
-  <header class="header">
-    <div class="header-content">
-      <div class="logo">?? Pelacak Pengeluaran</div>
-      <button id="themeToggle" class="theme-toggle" type="button">??</button>
+  <div class="container">
+    <!-- Settings Bar -->
+    <div class="settings-bar">
+      <button class="btn-icon" id="themeToggleBtn" title="Toggle Dark Mode">🌙</button>
+      <button class="btn-icon" id="settingsBtn" title="Settings">⚙️</button>
     </div>
-  </header>
 
-  <main class="container">
-    <section class="total-card">
-      <h2>Total Pengeluaran</h2>
-      <div id="totalAmount" class="total-amount">Rp 0</div>
-    </section>
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Settings</h2>
+          <button class="modal-close" id="closeSettingsBtn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <label for="userNameInput">Your Name:</label>
+            <input 
+              type="text" 
+              id="userNameInput" 
+              class="setting-input" 
+              placeholder="Enter your name"
+            />
+          </div>
+          <div class="setting-group">
+            <label for="timerDurationInput">Pomodoro Duration (minutes):</label>
+            <input 
+              type="number" 
+              id="timerDurationInput" 
+              class="setting-input" 
+              min="1" 
+              max="120" 
+              value="25"
+            />
+          </div>
+          <button class="btn btn-primary" id="saveSettingsBtn">Save Settings</button>
+        </div>
+      </div>
+    </div>
 
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="dashboard" type="button">Dashboard</button>
-      <button class="tab-btn" data-tab="add" type="button">Tambah</button>
-      <button class="tab-btn" data-tab="summary" type="button">Ringkasan</button>
-      <button class="tab-btn" data-tab="settings" type="button">Pengaturan</button>
-    </nav>
+    <!-- Greeting Section -->
+    <div class="greeting-card">
+      <div class="time" id="currentTime">10:45:22</div>
+      <div class="date" id="currentDate">Tuesday, January 27, 2026</div>
+      <div class="greeting" id="greetingText">Good Morning</div>
+    </div>
 
-    <section id="dashboard" class="tab-content active">
-      <div class="monthly-summary-card">
-        <h3>Ringkasan Bulan Ini</h3>
-        <div id="monthlySummaryCard" class="monthly-summary-content"></div>
+    <!-- Main Grid -->
+    <div class="main-grid">
+      <!-- Focus Timer -->
+      <div class="card timer-card">
+        <h2>Focus Timer</h2>
+        <div class="timer-display" id="timerDisplay">25:00</div>
+        <div class="timer-controls">
+          <button class="btn btn-primary" id="startBtn">Start</button>
+          <button class="btn btn-secondary" id="stopBtn">Stop</button>
+          <button class="btn btn-secondary" id="resetBtn">Reset</button>
+        </div>
       </div>
 
-      <div class="chart-section">
-        <h3>Distribusi Kategori</h3>
-        <canvas id="categoryChart" width="300" height="300"></canvas>
-      </div>
-
-      <div class="filters">
-        <div class="filter-group">
-          <label for="sortBy">Urutkan</label>
-          <select id="sortBy">
-            <option value="date-desc">Tanggal Terbaru</option>
-            <option value="date-asc">Tanggal Terlama</option>
-            <option value="amount-desc">Jumlah Terbesar</option>
-            <option value="amount-asc">Jumlah Terkecil</option>
-            <option value="category">Kategori</option>
+      <!-- Tasks -->
+      <div class="card tasks-card">
+        <h2>Tasks</h2>
+        <div class="task-input-group">
+          <input 
+            type="text" 
+            id="taskInput" 
+            class="task-input" 
+            placeholder="Add a new task..."
+          />
+          <button class="btn btn-primary" id="addTaskBtn">Add</button>
+        </div>
+        <div class="task-controls">
+          <label>Sort by:</label>
+          <select id="sortTasksSelect" class="sort-select">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="alphabetical">A-Z</option>
+            <option value="completed">Completed</option>
           </select>
         </div>
-        <div class="filter-group">
-          <label for="filterCategory">Filter Kategori</label>
-          <select id="filterCategory">
-            <option value="">Semua Kategori</option>
-          </select>
-        </div>
+        <ul class="task-list" id="taskList"></ul>
       </div>
 
-      <div id="budgetWarning" class="budget-warning" style="display:none;"></div>
-
-      <section class="list-section">
-        <h3>Daftar Pengeluaran</h3>
-        <div id="transactionList" class="transaction-list"></div>
-      </section>
-    </section>
-
-    <section id="add" class="tab-content">
-      <form id="transactionForm" class="transaction-form">
-        <div class="form-group">
-          <label for="transactionName">Nama Pengeluaran</label>
-          <input id="transactionName" type="text" required />
+      <!-- Quick Links -->
+      <div class="card quick-links-card">
+        <h2>Quick Links</h2>
+        <div class="link-input-group">
+          <input 
+            type="text" 
+            id="linkName" 
+            class="link-input" 
+            placeholder="Link name"
+          />
+          <input 
+            type="url" 
+            id="linkUrl" 
+            class="link-input" 
+            placeholder="URL"
+          />
+          <button class="btn btn-primary" id="addLinkBtn">Add Link</button>
         </div>
-
-        <div class="form-group">
-          <label for="transactionAmount">Jumlah</label>
-          <input id="transactionAmount" type="number" min="1" required />
-        </div>
-
-        <div class="form-group">
-          <label for="transactionCategory">Kategori</label>
-          <div class="category-input">
-            <select id="transactionCategory" required>
-              <option value="">Pilih Kategori...</option>
-            </select>
-            <button id="newCategoryBtn" class="btn-secondary" type="button">+ Kategori</button>
-          </div>
-        </div>
-
-        <div id="newCategoryGroup" class="form-group" style="display:none;">
-          <label for="newCategoryName">Kategori Baru</label>
-          <input id="newCategoryName" type="text" />
-          <div class="button-group" style="margin-top: 0.5rem;">
-            <button id="saveCategoryBtn" class="btn-primary" type="button">Simpan</button>
-            <button id="cancelCategoryBtn" class="btn-danger" type="button">Batal</button>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="transactionDate">Tanggal</label>
-          <input id="transactionDate" type="date" required />
-        </div>
-
-        <div class="form-group">
-          <label for="transactionNote">Catatan</label>
-          <textarea id="transactionNote" rows="3"></textarea>
-        </div>
-
-        <button class="btn-primary" type="submit">Simpan Pengeluaran</button>
-      </form>
-    </section>
-
-    <section id="summary" class="tab-content">
-      <div class="summary-section">
-        <h3>Ringkasan Bulanan</h3>
-        <div class="form-group">
-          <label for="summaryMonth">Pilih Bulan</label>
-          <input id="summaryMonth" type="month" />
-        </div>
-        <div id="summaryContent" class="summary-content"></div>
+        <div class="quick-links-container" id="quickLinksContainer"></div>
       </div>
-    </section>
-
-    <section id="settings" class="tab-content">
-      <div class="settings-section">
-        <h3>Pengaturan</h3>
-
-        <div class="setting-item">
-          <h4>Batas Pengeluaran Bulanan</h4>
-          <div class="form-group">
-            <input id="budgetLimit" type="number" min="1" />
-          </div>
-          <button id="saveBudgetBtn" class="btn-primary" type="button">Simpan Batas</button>
-          <p id="budgetInfo" class="info-text"></p>
-        </div>
-
-        <div class="setting-item">
-          <h4>Kelola Kategori</h4>
-          <div id="categoriesList" class="categories-list"></div>
-        </div>
-
-        <div class="setting-item">
-          <h4>Data</h4>
-          <div class="button-group">
-            <button id="exportBtn" class="btn-secondary" type="button">Export</button>
-            <button id="importBtn" class="btn-secondary" type="button">Import</button>
-          </div>
-          <input id="importFile" type="file" accept="application/json" style="display:none;" />
-          <button id="clearDataBtn" class="btn-danger" type="button" style="margin-top:0.75rem;">Hapus Semua Data</button>
-        </div>
-      </div>
-    </section>
-  </main>
+    </div>
+  </div>
 
   <script src="js/app.js"></script>
 </body>

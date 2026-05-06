@@ -1,718 +1,442 @@
-/**
- * Aplikasi Pelacak Pengeluaran Harian
- * Mobile-friendly expense tracker dengan fitur lengkap
+﻿/**
+ * Focus Dashboard Application
+ * A minimal, clean dashboard with greeting, focus timer, tasks, and quick links
  */
 
-// ===== Constants =====
-const STORAGE_KEY = 'expense_tracker_data';
-const DEFAULT_CATEGORIES = ['Makanan', 'Transportasi', 'Hiburan', 'Kesehatan', 'Belanja'];
-const CHART_COLORS = [
-    '#FF9800', '#2196F3', '#4CAF50', '#FF5722', '#9C27B0',
-    '#00BCD4', '#FFEB3B', '#795548', '#607D8B', '#E91E63'
-];
-
-// ===== DOM Elements =====
-const themeToggle = document.getElementById('themeToggle');
-const transactionForm = document.getElementById('transactionForm');
-const transactionList = document.getElementById('transactionList');
-const totalAmount = document.getElementById('totalAmount');
-const sortBy = document.getElementById('sortBy');
-const filterCategory = document.getElementById('filterCategory');
-const categoryChart = document.getElementById('categoryChart');
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-const transactionDate = document.getElementById('transactionDate');
-const newCategoryBtn = document.getElementById('newCategoryBtn');
-const newCategoryGroup = document.getElementById('newCategoryGroup');
-const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
-const saveCategoryBtn = document.getElementById('saveCategoryBtn');
-const transactionCategory = document.getElementById('transactionCategory');
-const newCategoryName = document.getElementById('newCategoryName');
-const summaryMonth = document.getElementById('summaryMonth');
-const summaryContent = document.getElementById('summaryContent');
-const budgetLimit = document.getElementById('budgetLimit');
-const saveBudgetBtn = document.getElementById('saveBudgetBtn');
-const budgetInfo = document.getElementById('budgetInfo');
-const budgetWarning = document.getElementById('budgetWarning');
-const categoriesList = document.getElementById('categoriesList');
-const exportBtn = document.getElementById('exportBtn');
-const importBtn = document.getElementById('importBtn');
-const importFile = document.getElementById('importFile');
-const clearDataBtn = document.getElementById('clearDataBtn');
-const monthlySummaryCard = document.getElementById('monthlySummaryCard');
+// ===== Storage Keys =====
+const STORAGE_KEYS = {
+  tasks: 'dashboard_tasks',
+  quickLinks: 'dashboard_quick_links',
+  userName: 'dashboard_user_name',
+  timerDuration: 'dashboard_timer_duration',
+  darkMode: 'dashboard_dark_mode',
+  taskSortMode: 'dashboard_task_sort'
+};
 
 // ===== App State =====
-class ExpenseTracker {
-    constructor() {
-        this.transactions = [];
-        this.categories = [...DEFAULT_CATEGORIES];
-        this.budgetLimit = 1000000;
-        this.loadData();
-        this.init();
-    }
-
-    // ===== Data Management =====
-    loadData() {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const data = JSON.parse(saved);
-                this.transactions = data.transactions || [];
-                this.categories = data.categories || [...DEFAULT_CATEGORIES];
-                this.budgetLimit = data.budgetLimit || 1000000;
-            }
-        } catch (error) {
-            console.error('Error loading data:', error);
-            this.resetData();
-        }
-    }
-
-    saveData() {
-        try {
-            const data = {
-                transactions: this.transactions,
-                categories: this.categories,
-                budgetLimit: this.budgetLimit
-            };
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch (error) {
-            console.error('Error saving data:', error);
-            alert('Gagal menyimpan data ke Local Storage');
-        }
-    }
-
-    resetData() {
-        this.transactions = [];
-        this.categories = [...DEFAULT_CATEGORIES];
-        this.budgetLimit = 1000000;
-        localStorage.removeItem(STORAGE_KEY);
-    }
-
-    // ===== Transaction Management =====
-    addTransaction(name, amount, category, date, note) {
-        const transaction = {
-            id: Date.now(),
-            name,
-            amount: parseFloat(amount),
-            category,
-            date,
-            note,
-            createdAt: new Date().toISOString()
-        };
-        this.transactions.push(transaction);
-        this.saveData();
-        return transaction;
-    }
-
-    deleteTransaction(id) {
-        this.transactions = this.transactions.filter(t => t.id !== id);
-        this.saveData();
-    }
-
-    getTransactions() {
-        return this.transactions;
-    }
-
-    // ===== Category Management =====
-    addCategory(name) {
-        if (name.trim() && !this.categories.includes(name)) {
-            this.categories.push(name);
-            this.saveData();
-            return true;
-        }
-        return false;
-    }
-
-    deleteCategory(name) {
-        if (this.categories.includes(name) && this.categories.length > 1) {
-            this.categories = this.categories.filter(c => c !== name);
-            this.saveData();
-            return true;
-        }
-        return false;
-    }
-
-    // ===== Calculations =====
-    getTotalAmount() {
-        return this.transactions.reduce((sum, t) => sum + t.amount, 0);
-    }
-
-    getMonthTotal(year, month) {
-        return this.transactions
-            .filter(t => {
-                const d = new Date(t.date);
-                return d.getFullYear() === year && d.getMonth() === month;
-            })
-            .reduce((sum, t) => sum + t.amount, 0);
-    }
-
-    getDayTotal(date) {
-        return this.transactions
-            .filter(t => t.date === date)
-            .reduce((sum, t) => sum + t.amount, 0);
-    }
-
-    getCategoryTotal(category) {
-        return this.transactions
-            .filter(t => t.category === category)
-            .reduce((sum, t) => sum + t.amount, 0);
-    }
-
-    getCategoryDistribution() {
-        const distribution = {};
-        this.transactions.forEach(t => {
-            distribution[t.category] = (distribution[t.category] || 0) + t.amount;
-        });
-        return distribution;
-    }
-
-    // ===== Initialization =====
-    init() {
-        this.setupEventListeners();
-        this.updateUI();
-        this.loadTheme();
-        this.setupDateInput();
-    }
-
-    setupEventListeners() {
-        // Form submission
-        transactionForm.addEventListener('submit', (e) => this.handleAddTransaction(e));
-
-        // Theme toggle
-        themeToggle.addEventListener('click', () => this.toggleTheme());
-
-        // Tab navigation
-        tabButtons.forEach(btn => {
-            btn.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
-        });
-
-        // Sorting and filtering
-        sortBy.addEventListener('change', () => this.renderTransactions());
-        filterCategory.addEventListener('change', () => this.renderTransactions());
-
-        // Category management
-        newCategoryBtn.addEventListener('click', () => this.showNewCategoryInput());
-        cancelCategoryBtn.addEventListener('click', () => this.hideNewCategoryInput());
-        saveCategoryBtn.addEventListener('click', () => this.handleSaveCategory());
-
-        // Summary
-        summaryMonth.addEventListener('change', () => this.renderMonthlySummary());
-
-        // Settings
-        saveBudgetBtn.addEventListener('click', () => this.handleSaveBudget());
-        exportBtn.addEventListener('click', () => this.handleExportData());
-        importBtn.addEventListener('click', () => importFile.click());
-        importFile.addEventListener('change', (e) => this.handleImportData(e));
-        clearDataBtn.addEventListener('click', () => this.handleClearData());
-    }
-
-    setupDateInput() {
-        const today = new Date().toISOString().split('T')[0];
-        transactionDate.value = today;
-        const now = new Date();
-        summaryMonth.valueAsDate = now;
-        // Gunakan format string YYYY-MM untuk kompatibilitas yang lebih baik
-        summaryMonth.value = today.substring(0, 7);
-    }
-
-    // ===== Event Handlers =====
-    handleAddTransaction(e) {
-        e.preventDefault();
-
-        const name = document.getElementById('transactionName').value.trim();
-        const amount = document.getElementById('transactionAmount').value;
-        const category = document.getElementById('transactionCategory').value;
-        const date = document.getElementById('transactionDate').value;
-        const note = document.getElementById('transactionNote').value.trim();
-
-        if (!name || !amount || !category || !date) {
-            alert('Harap isi semua field yang diperlukan');
-            return;
-        }
-
-        this.addTransaction(name, amount, category, date, note);
-        transactionForm.reset();
-        transactionDate.value = new Date().toISOString().split('T')[0];
-        this.updateUI();
-        this.switchTab('dashboard');
-
-        // Show success message
-        const formMsg = document.createElement('div');
-        formMsg.textContent = '✓ Transaksi berhasil ditambahkan';
-        formMsg.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #4CAF50;
-            color: white;
-            padding: 1rem;
-            border-radius: 8px;
-            z-index: 1000;
-            animation: slideIn 0.3s ease;
-        `;
-        document.body.appendChild(formMsg);
-        setTimeout(() => formMsg.remove(), 3000);
-    }
-
-    handleSaveCategory() {
-        const name = newCategoryName.value.trim();
-        if (!name) {
-            alert('Harap masukkan nama kategori');
-            return;
-        }
-
-        if (this.addCategory(name)) {
-            newCategoryName.value = '';
-            this.hideNewCategoryInput();
-            this.updateCategorySelects();
-            this.updateUI();
-        } else {
-            alert('Kategori sudah ada atau invalid');
-        }
-    }
-
-    handleSaveBudget() {
-        const limit = parseFloat(budgetLimit.value);
-        if (limit > 0) {
-            this.budgetLimit = limit;
-            this.saveData();
-            this.updateBudgetInfo();
-            this.updateUI();
-            alert('Batas pengeluaran berhasil disimpan');
-        } else {
-            alert('Harap masukkan jumlah yang valid');
-        }
-    }
-
-    handleExportData() {
-        const data = {
-            transactions: this.transactions,
-            categories: this.categories,
-            budgetLimit: this.budgetLimit,
-            exportDate: new Date().toISOString()
-        };
-
-        const dataStr = JSON.stringify(data, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `expense-tracker-${new Date().toISOString().split('T')[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }
-
-    handleImportData(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                const data = JSON.parse(event.target.result);
-                if (data.transactions && data.categories) {
-                    this.transactions = data.transactions || [];
-                    this.categories = data.categories || [...DEFAULT_CATEGORIES];
-                    this.budgetLimit = data.budgetLimit || 1000000;
-                    this.saveData();
-                    this.updateUI();
-                    alert('Data berhasil diimpor');
-                } else {
-                    alert('Format file tidak valid');
-                }
-            } catch (error) {
-                alert('Gagal membaca file: ' + error.message);
-            }
-        };
-        reader.readAsText(file);
-        importFile.value = '';
-    }
-
-    handleClearData() {
-        if (confirm('Apakah Anda yakin ingin menghapus semua data? Tindakan ini tidak dapat dibatalkan.')) {
-            this.resetData();
-            this.updateUI();
-            alert('Semua data telah dihapus');
-        }
-    }
-
-    // ===== UI Updates =====
-    updateUI() {
-        this.updateTotals();
-        this.renderTransactions();
-        this.renderChart();
-        this.updateCategorySelects();
-        this.updateBudgetInfo();
-        this.renderCategoriesList();
-        this.checkBudgetWarning();
-    }
-
-    updateTotals() {
-        const total = this.getTotalAmount();
-        totalAmount.textContent = this.formatCurrency(total);
-        this.renderMonthlySummaryCard();
-    }
-
-    renderTransactions() {
-        let transactions = [...this.transactions];
-
-        // Filter by category
-        const selectedCategory = filterCategory.value;
-        if (selectedCategory) {
-            transactions = transactions.filter(t => t.category === selectedCategory);
-        }
-
-        // Sort
-        const sort = sortBy.value;
-        switch (sort) {
-            case 'date-asc':
-                transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
-                break;
-            case 'amount-desc':
-                transactions.sort((a, b) => b.amount - a.amount);
-                break;
-            case 'amount-asc':
-                transactions.sort((a, b) => a.amount - b.amount);
-                break;
-            case 'category':
-                transactions.sort((a, b) => a.category.localeCompare(b.category));
-                break;
-            case 'date-desc':
-            default:
-                transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-        }
-
-        if (transactions.length === 0) {
-            transactionList.innerHTML = '<p class="empty-state">Belum ada transaksi. Mulai tambahkan pengeluaran Anda!</p>';
-            return;
-        }
-
-        const dailyBudget = this.budgetLimit / 30;
-        transactionList.innerHTML = transactions.map(t => {
-            const isHighlighted = t.amount > dailyBudget;
-            return `
-                <div class="transaction-item ${isHighlighted ? 'highlighted' : ''}">
-                    <div class="transaction-left">
-                        <div class="transaction-name">${this.escapeHtml(t.name)}</div>
-                        <div class="transaction-meta">
-                            <span class="transaction-category" style="background-color: ${this.getCategoryColor(t.category)}; color: white;">
-                                ${this.escapeHtml(t.category)}
-                            </span>
-                            <span>${this.formatDate(t.date)}</span>
-                            ${t.note ? `<span>📝 ${this.escapeHtml(t.note)}</span>` : ''}
-                        </div>
-                    </div>
-                    <div class="transaction-right">
-                        <div class="transaction-amount">-${this.formatCurrency(t.amount)}</div>
-                        <button class="transaction-delete" data-id="${t.id}" title="Hapus">🗑️</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        // Add delete event listeners
-        document.querySelectorAll('.transaction-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = parseInt(e.currentTarget.dataset.id);
-                if (confirm('Hapus transaksi ini?')) {
-                    this.deleteTransaction(id);
-                    this.updateUI();
-                }
-            });
-        });
-    }
-
-    renderChart() {
-        const distribution = this.getCategoryDistribution();
-        const categories = Object.keys(distribution);
-
-        if (categories.length === 0) {
-            categoryChart.getContext('2d').clearRect(0, 0, categoryChart.width, categoryChart.height);
-            return;
-        }
-
-        const ctx = categoryChart.getContext('2d');
-        const amounts = Object.values(distribution);
-        const colors = categories.map((cat, idx) => CHART_COLORS[idx % CHART_COLORS.length]);
-
-        this.drawPieChart(ctx, amounts, categories, colors);
-    }
-
-    renderMonthlySummaryCard() {
-        const now = new Date();
-        const distribution = {};
-        
-        this.transactions
-            .filter(t => {
-                const d = new Date(t.date);
-                return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
-            })
-            .forEach(t => {
-                distribution[t.category] = (distribution[t.category] || 0) + t.amount;
-            });
-
-        const categories = Object.entries(distribution)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 3);
-
-        if (categories.length === 0) {
-            monthlySummaryCard.innerHTML = '<div class="summary-placeholder">-</div>';
-            return;
-        }
-
-        monthlySummaryCard.innerHTML = categories.map(([category, amount]) => `
-            <div class="summary-category-item">
-                <span class="category-label">${this.escapeHtml(category)}</span>
-                <span class="category-amount">${this.formatCurrency(amount)}</span>
-            </div>
-        `).join('');
-    }
-
-    drawPieChart(ctx, amounts, labels, colors) {
-        const width = categoryChart.width;
-        const height = categoryChart.height;
-        const centerX = width / 2;
-        const centerY = height / 2;
-        const radius = Math.min(width, height) / 2 - 40;
-
-        ctx.clearRect(0, 0, width, height);
-
-        const total = amounts.reduce((a, b) => a + b, 0);
-        let currentAngle = -Math.PI / 2;
-
-        // Draw slices
-        amounts.forEach((amount, idx) => {
-            const sliceAngle = (amount / total) * 2 * Math.PI;
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-            ctx.lineTo(centerX, centerY);
-            ctx.fillStyle = colors[idx];
-            ctx.fill();
-            ctx.strokeStyle = 'white';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Draw label
-            const labelAngle = currentAngle + sliceAngle / 2;
-            const labelX = centerX + Math.cos(labelAngle) * (radius * 0.65);
-            const labelY = centerY + Math.sin(labelAngle) * (radius * 0.65);
-
-            const percentage = ((amount / total) * 100).toFixed(0);
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(percentage + '%', labelX, labelY);
-
-            currentAngle += sliceAngle;
-        });
-
-        // Draw legend
-        let legendY = 20;
-        ctx.font = '12px Arial';
-        ctx.textAlign = 'left';
-        labels.forEach((label, idx) => {
-            ctx.fillStyle = colors[idx];
-            ctx.fillRect(10, legendY, 12, 12);
-            ctx.fillStyle = this.getTextColor();
-            ctx.fillText(label + ' ' + this.formatCurrency(amounts[idx]), 30, legendY + 6);
-            legendY += 20;
-        });
-    }
-
-    renderMonthlySummary() {
-        const val = summaryMonth.value; // Format: "YYYY-MM"
-        if (!val) {
-            summaryContent.innerHTML = '<p class="empty-state">Silakan pilih bulan terlebih dahulu</p>';
-            return;
-        }
-
-        // Memecah string "YYYY-MM" secara manual untuk menghindari masalah timezone
-        const [year, monthNum] = val.split('-').map(Number);
-        const month = monthNum - 1; // JavaScript menggunakan 0-indexed month (0-11)
-
-        const monthTransactions = this.transactions.filter(t => {
-            const d = new Date(t.date);
-            return d.getFullYear() === year && d.getMonth() === month;
-        });
-
-        if (monthTransactions.length === 0) {
-            summaryContent.innerHTML = '<p class="empty-state">Tidak ada transaksi di bulan ini</p>';
-            return;
-        }
-
-        // Calculate category totals
-        const categoryTotals = {};
-        const categoryCounts = {};
-        monthTransactions.forEach(t => {
-            categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
-            categoryCounts[t.category] = (categoryCounts[t.category] || 0) + 1;
-        });
-
-        const monthTotal = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
-
-        let html = '';
-        Object.entries(categoryTotals)
-            .sort((a, b) => b[1] - a[1])
-            .forEach(([category, amount]) => {
-                html += `
-                    <div class="summary-item">
-                        <div class="summary-item-left">
-                            <div class="summary-category">${this.escapeHtml(category)}</div>
-                            <div class="summary-count">${categoryCounts[category]} transaksi</div>
-                        </div>
-                        <div class="summary-amount">${this.formatCurrency(amount)}</div>
-                    </div>
-                `;
-            });
-
-        html += `
-            <div class="summary-total">
-                <div class="summary-total-label">Total Pengeluaran</div>
-                <div class="summary-total-amount">${this.formatCurrency(monthTotal)}</div>
-            </div>
-        `;
-
-        summaryContent.innerHTML = html;
-    }
-
-    updateCategorySelects() {
-        const options = this.categories.map(cat => `<option value="${this.escapeHtml(cat)}">${this.escapeHtml(cat)}</option>`).join('');
-        transactionCategory.innerHTML = '<option value="">Pilih Kategori...</option>' + options;
-        filterCategory.innerHTML = '<option value="">Semua Kategori</option>' + options;
-    }
-
-    updateBudgetInfo() {
-        budgetLimit.value = this.budgetLimit;
-        const monthTotal = this.getMonthTotal(new Date().getFullYear(), new Date().getMonth());
-        const percentage = ((monthTotal / this.budgetLimit) * 100).toFixed(1);
-        budgetInfo.textContent = `Pengeluaran bulan ini: ${this.formatCurrency(monthTotal)} (${percentage}% dari batas)`;
-    }
-
-    renderCategoriesList() {
-        categoriesList.innerHTML = this.categories.map(cat => `
-            <div class="category-item">
-                <span class="category-name">${this.escapeHtml(cat)}</span>
-                <button class="category-delete" data-category="${this.escapeHtml(cat)}" ${this.categories.length === 1 ? 'disabled' : ''}>Hapus</button>
-            </div>
-        `).join('');
-
-        document.querySelectorAll('.category-delete').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const category = e.currentTarget.dataset.category;
-                if (confirm(`Hapus kategori "${category}"?`)) {
-                    this.deleteCategory(category);
-                    this.updateUI();
-                }
-            });
-        });
-    }
-
-    checkBudgetWarning() {
-        const now = new Date();
-        const monthTotal = this.getMonthTotal(now.getFullYear(), now.getMonth());
-        if (monthTotal > this.budgetLimit) {
-            const excess = monthTotal - this.budgetLimit;
-            budgetWarning.textContent = `⚠️ Pengeluaran Anda telah melebihi batas sebesar ${this.formatCurrency(excess)}!`;
-            budgetWarning.style.display = 'flex';
-        } else {
-            budgetWarning.style.display = 'none';
-        }
-    }
-
-    // ===== UI Actions =====
-    switchTab(tabName) {
-        tabButtons.forEach(btn => btn.classList.remove('active'));
-        tabContents.forEach(content => content.classList.remove('active'));
-
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-        document.getElementById(tabName).classList.add('active');
-        document.body.classList.toggle('add-focused', tabName === 'add');
-
-        if (tabName === 'summary') {
-            this.renderMonthlySummary();
-        }
-    }
-
-    toggleTheme() {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        localStorage.setItem('theme_preference', isDark ? 'dark' : 'light');
-        themeToggle.textContent = isDark ? '☀️' : '🌙';
-        this.renderChart();
-    }
-
-    loadTheme() {
-        const theme = localStorage.getItem('theme_preference') || 'light';
-        if (theme === 'dark') {
-            document.body.classList.add('dark-mode');
-            themeToggle.textContent = '☀️';
-        }
-    }
-
-    showNewCategoryInput() {
-        newCategoryGroup.style.display = 'block';
-        newCategoryName.focus();
-    }
-
-    hideNewCategoryInput() {
-        newCategoryGroup.style.display = 'none';
-        newCategoryName.value = '';
-    }
-
-    // ===== Utility Functions =====
-    formatCurrency(amount) {
-        return new Intl.NumberFormat('id-ID', {
-            style: 'currency',
-            currency: 'IDR',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    }
-
-    formatDate(dateStr) {
-        const date = new Date(dateStr);
-        return new Intl.DateTimeFormat('id-ID', {
-            weekday: 'short',
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        }).format(date);
-    }
-
-    escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
-    }
-
-    getCategoryColor(category) {
-        const index = this.categories.indexOf(category);
-        return CHART_COLORS[index % CHART_COLORS.length];
-    }
-
-    getTextColor() {
-        return document.body.classList.contains('dark-mode') ? '#ffffff' : '#000000';
-    }
+let appState = {
+  timerInterval: null,
+  timeRemaining: 25 * 60, // 25 minutes in seconds
+  isRunning: false,
+  timerDuration: 25, // minutes
+  userName: '',
+  darkMode: false,
+  taskSortMode: 'newest'
+};
+
+// ===== DOM Elements =====
+const currentTimeEl = document.getElementById('currentTime');
+const currentDateEl = document.getElementById('currentDate');
+const greetingTextEl = document.getElementById('greetingText');
+const timerDisplayEl = document.getElementById('timerDisplay');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const resetBtn = document.getElementById('resetBtn');
+const taskInputEl = document.getElementById('taskInput');
+const addTaskBtn = document.getElementById('addTaskBtn');
+const taskListEl = document.getElementById('taskList');
+const linkNameEl = document.getElementById('linkName');
+const linkUrlEl = document.getElementById('linkUrl');
+const addLinkBtn = document.getElementById('addLinkBtn');
+const quickLinksContainerEl = document.getElementById('quickLinksContainer');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const userNameInput = document.getElementById('userNameInput');
+const timerDurationInput = document.getElementById('timerDurationInput');
+const sortTasksSelect = document.getElementById('sortTasksSelect');
+
+// ===== Load Initial Settings =====
+function loadAppState() {
+  appState.userName = localStorage.getItem(STORAGE_KEYS.userName) || '';
+  appState.timerDuration = parseInt(localStorage.getItem(STORAGE_KEYS.timerDuration)) || 25;
+  appState.darkMode = localStorage.getItem(STORAGE_KEYS.darkMode) === 'true';
+  appState.taskSortMode = localStorage.getItem(STORAGE_KEYS.taskSortMode) || 'newest';
+  
+  // Apply dark mode
+  if (appState.darkMode) {
+    document.body.classList.add('dark-mode');
+    themeToggleBtn.textContent = 'â˜€ï¸';
+  }
+  
+  // Update UI
+  userNameInput.value = appState.userName;
+  timerDurationInput.value = appState.timerDuration;
+  sortTasksSelect.value = appState.taskSortMode;
+  
+  // Update timer display
+  appState.timeRemaining = appState.timerDuration * 60;
+  updateTimerDisplay();
 }
 
-// ===== Initialize App =====
-const app = new ExpenseTracker();
+loadAppState();
 
-// Add slide-in animation for success messages
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes slideIn {
-        from {
-            transform: translateX(400px);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
+// ===== Time and Greeting Functions =====
+
+function updateTime() {
+  const now = new Date();
+  
+  // Format time
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const seconds = String(now.getSeconds()).padStart(2, '0');
+  currentTimeEl.textContent = `${hours}:${minutes}:${seconds}`;
+  
+  // Format date
+  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+  const dateStr = now.toLocaleDateString('en-US', options);
+  currentDateEl.textContent = dateStr;
+  
+  // Update greeting based on time
+  updateGreeting(now.getHours());
+}
+
+function updateGreeting(hour) {
+  let greeting = 'Good Evening';
+  
+  if (hour >= 5 && hour < 12) {
+    greeting = 'Good Morning';
+  } else if (hour >= 12 && hour < 17) {
+    greeting = 'Good Afternoon';
+  } else if (hour >= 17 && hour < 21) {
+    greeting = 'Good Evening';
+  } else {
+    greeting = 'Good Night';
+  }
+  
+  // Add user name if available
+  if (appState.userName) {
+    greeting += ', ' + appState.userName;
+  }
+  
+  greetingTextEl.textContent = greeting;
+}
+
+// Update time immediately and then every second
+updateTime();
+setInterval(updateTime, 1000);
+
+// ===== Theme Toggle =====
+function toggleDarkMode() {
+  appState.darkMode = !appState.darkMode;
+  document.body.classList.toggle('dark-mode');
+  localStorage.setItem(STORAGE_KEYS.darkMode, appState.darkMode);
+  themeToggleBtn.textContent = appState.darkMode ? 'â˜€ï¸' : 'ðŸŒ™';
+}
+
+themeToggleBtn.addEventListener('click', toggleDarkMode);
+
+// ===== Settings Modal =====
+function openSettings() {
+  settingsModal.classList.add('active');
+}
+
+function closeSettings() {
+  settingsModal.classList.remove('active');
+}
+
+function saveSettings() {
+  const newName = userNameInput.value.trim();
+  const newDuration = parseInt(timerDurationInput.value);
+  
+  if (newDuration < 1 || newDuration > 120) {
+    alert('Duration must be between 1 and 120 minutes');
+    return;
+  }
+  
+  appState.userName = newName;
+  appState.timerDuration = newDuration;
+  
+  localStorage.setItem(STORAGE_KEYS.userName, newName);
+  localStorage.setItem(STORAGE_KEYS.timerDuration, newDuration);
+  
+  // Reset timer with new duration
+  appState.timeRemaining = newDuration * 60;
+  updateTimerDisplay();
+  updateTime();
+  
+  closeSettings();
+  alert('Settings saved successfully!');
+}
+
+settingsBtn.addEventListener('click', openSettings);
+closeSettingsBtn.addEventListener('click', closeSettings);
+saveSettingsBtn.addEventListener('click', saveSettings);
+
+// Close modal when clicking outside
+settingsModal.addEventListener('click', (e) => {
+  if (e.target === settingsModal) {
+    closeSettings();
+  }
+});
+
+// ===== Timer Functions =====
+
+function formatTime(seconds) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+}
+
+function updateTimerDisplay() {
+  timerDisplayEl.textContent = formatTime(appState.timeRemaining);
+}
+
+function startTimer() {
+  if (appState.isRunning) return;
+  
+  appState.isRunning = true;
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  
+  appState.timerInterval = setInterval(() => {
+    if (appState.timeRemaining > 0) {
+      appState.timeRemaining--;
+      updateTimerDisplay();
+    } else {
+      stopTimer();
+      alert('Focus time completed! Great job!');
     }
-`;
-document.head.appendChild(style);
+  }, 1000);
+}
+
+function stopTimer() {
+  appState.isRunning = false;
+  clearInterval(appState.timerInterval);
+  appState.timerInterval = null;
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+function resetTimer() {
+  stopTimer();
+  appState.timeRemaining = appState.timerDuration * 60;
+  updateTimerDisplay();
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+}
+
+startBtn.addEventListener('click', startTimer);
+stopBtn.addEventListener('click', stopTimer);
+resetBtn.addEventListener('click', resetTimer);
+stopBtn.disabled = true;
+
+updateTimerDisplay();
+
+// ===== Task Functions =====
+
+function getTasks() {
+  try {
+    const tasks = localStorage.getItem(STORAGE_KEYS.tasks);
+    return tasks ? JSON.parse(tasks) : [];
+  } catch (error) {
+    console.error('Error loading tasks:', error);
+    return [];
+  }
+}
+
+function saveTasks(tasks) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.tasks, JSON.stringify(tasks));
+  } catch (error) {
+    console.error('Error saving tasks:', error);
+  }
+}
+
+function sortTasks(tasks) {
+  const sortMode = appState.taskSortMode;
+  let sorted = [...tasks];
+  
+  switch (sortMode) {
+    case 'newest':
+      sorted.sort((a, b) => (b.id || 0) - (a.id || 0));
+      break;
+    case 'oldest':
+      sorted.sort((a, b) => (a.id || 0) - (b.id || 0));
+      break;
+    case 'alphabetical':
+      sorted.sort((a, b) => a.text.localeCompare(b.text));
+      break;
+    case 'completed':
+      sorted.sort((a, b) => a.completed - b.completed);
+      break;
+    default:
+      break;
+  }
+  
+  return sorted;
+}
+
+function renderTasks() {
+  const tasks = getTasks();
+  const sortedTasks = sortTasks(tasks);
+  taskListEl.innerHTML = '';
+  
+  sortedTasks.forEach((task, displayIndex) => {
+    const actualIndex = tasks.findIndex(t => t.id === task.id);
+    
+    const taskItem = document.createElement('li');
+    taskItem.className = `task-item ${task.completed ? 'completed' : ''}`;
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'task-checkbox';
+    checkbox.checked = task.completed;
+    checkbox.addEventListener('change', () => toggleTaskComplete(actualIndex));
+    
+    const label = document.createElement('span');
+    label.className = 'task-text';
+    label.textContent = task.text;
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'task-delete-btn';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => deleteTask(actualIndex));
+    
+    taskItem.appendChild(checkbox);
+    taskItem.appendChild(label);
+    taskItem.appendChild(deleteBtn);
+    taskListEl.appendChild(taskItem);
+  });
+}
+
+function taskExists(text) {
+  const tasks = getTasks();
+  return tasks.some(task => task.text.toLowerCase() === text.toLowerCase());
+}
+
+function addTask() {
+  const text = taskInputEl.value.trim();
+  if (!text) return;
+  
+  // Check for duplicate tasks
+  if (taskExists(text)) {
+    alert('This task already exists!');
+    return;
+  }
+  
+  const tasks = getTasks();
+  const newId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id || 0)) + 1 : 1;
+  tasks.push({ text, completed: false, id: newId });
+  saveTasks(tasks);
+  renderTasks();
+  taskInputEl.value = '';
+  taskInputEl.focus();
+}
+
+function deleteTask(index) {
+  const tasks = getTasks();
+  tasks.splice(index, 1);
+  saveTasks(tasks);
+  renderTasks();
+}
+
+function toggleTaskComplete(index) {
+  const tasks = getTasks();
+  tasks[index].completed = !tasks[index].completed;
+  saveTasks(tasks);
+  renderTasks();
+}
+
+function changeSortMode(mode) {
+  appState.taskSortMode = mode;
+  localStorage.setItem(STORAGE_KEYS.taskSortMode, mode);
+  renderTasks();
+}
+
+addTaskBtn.addEventListener('click', addTask);
+taskInputEl.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addTask();
+});
+
+sortTasksSelect.addEventListener('change', (e) => {
+  changeSortMode(e.target.value);
+});
+
+renderTasks();
+
+// ===== Quick Links Functions =====
+
+function getQuickLinks() {
+  try {
+    const links = localStorage.getItem(STORAGE_KEYS.quickLinks);
+    return links ? JSON.parse(links) : [];
+  } catch (error) {
+    console.error('Error loading links:', error);
+    return [];
+  }
+}
+
+function saveQuickLinks(links) {
+  try {
+    localStorage.setItem(STORAGE_KEYS.quickLinks, JSON.stringify(links));
+  } catch (error) {
+    console.error('Error saving links:', error);
+  }
+}
+
+function renderQuickLinks() {
+  const links = getQuickLinks();
+  quickLinksContainerEl.innerHTML = '';
+  
+  links.forEach((link, index) => {
+    const linkBtn = document.createElement('a');
+    linkBtn.href = link.url;
+    linkBtn.target = '_blank';
+    linkBtn.className = 'quick-link-btn';
+    linkBtn.textContent = link.name;
+    
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'quick-link-delete';
+    deleteBtn.textContent = 'Ã—';
+    deleteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      deleteQuickLink(index);
+    });
+    
+    linkBtn.appendChild(deleteBtn);
+    quickLinksContainerEl.appendChild(linkBtn);
+  });
+}
+
+function addQuickLink() {
+  const name = linkNameEl.value.trim();
+  const url = linkUrlEl.value.trim();
+  
+  if (!name || !url) {
+    alert('Please enter both link name and URL');
+    return;
+  }
+  
+  // Validate URL format
+  try {
+    new URL(url);
+  } catch {
+    alert('Please enter a valid URL');
+    return;
+  }
+  
+  const links = getQuickLinks();
+  links.push({ name, url });
+  saveQuickLinks(links);
+  renderQuickLinks();
+  linkNameEl.value = '';
+  linkUrlEl.value = '';
+  linkNameEl.focus();
+}
+
+function deleteQuickLink(index) {
+  const links = getQuickLinks();
+  links.splice(index, 1);
+  saveQuickLinks(links);
+  renderQuickLinks();
+}
+
+addLinkBtn.addEventListener('click', addQuickLink);
+linkUrlEl.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') addQuickLink();
+});
+
+renderQuickLinks();
