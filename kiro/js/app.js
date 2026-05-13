@@ -1,442 +1,244 @@
-﻿/**
- * Focus Dashboard Application
- * A minimal, clean dashboard with greeting, focus timer, tasks, and quick links
- */
+const STORAGE_KEY = 'expense_tracker_data_v1';
+const THEME_KEY = 'expense_tracker_theme_v1';
 
-// ===== Storage Keys =====
-const STORAGE_KEYS = {
-  tasks: 'dashboard_tasks',
-  quickLinks: 'dashboard_quick_links',
-  userName: 'dashboard_user_name',
-  timerDuration: 'dashboard_timer_duration',
-  darkMode: 'dashboard_dark_mode',
-  taskSortMode: 'dashboard_task_sort'
+const state = {
+  transactions: [],
+  categories: ['Makanan', 'Transportasi', 'Hiburan'],
+  spendingLimit: 0,
+  chart: null,
+  sortBy: 'newest'
 };
 
-// ===== App State =====
-let appState = {
-  timerInterval: null,
-  timeRemaining: 25 * 60, // 25 minutes in seconds
-  isRunning: false,
-  timerDuration: 25, // minutes
-  userName: '',
-  darkMode: false,
-  taskSortMode: 'newest'
+const el = {
+  form: document.getElementById('expenseForm'),
+  itemName: document.getElementById('itemName'),
+  itemAmount: document.getElementById('itemAmount'),
+  itemCategory: document.getElementById('itemCategory'),
+  transactionList: document.getElementById('transactionList'),
+  totalBalance: document.getElementById('totalBalance'),
+  formError: document.getElementById('formError'),
+  addCategoryBtn: document.getElementById('addCategoryBtn'),
+  customCategory: document.getElementById('customCategory'),
+  sortBy: document.getElementById('sortBy'),
+  spendingLimit: document.getElementById('spendingLimit'),
+  limitNotice: document.getElementById('limitNotice'),
+  themeToggle: document.getElementById('themeToggle')
 };
 
-// ===== DOM Elements =====
-const currentTimeEl = document.getElementById('currentTime');
-const currentDateEl = document.getElementById('currentDate');
-const greetingTextEl = document.getElementById('greetingText');
-const timerDisplayEl = document.getElementById('timerDisplay');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const resetBtn = document.getElementById('resetBtn');
-const taskInputEl = document.getElementById('taskInput');
-const addTaskBtn = document.getElementById('addTaskBtn');
-const taskListEl = document.getElementById('taskList');
-const linkNameEl = document.getElementById('linkName');
-const linkUrlEl = document.getElementById('linkUrl');
-const addLinkBtn = document.getElementById('addLinkBtn');
-const quickLinksContainerEl = document.getElementById('quickLinksContainer');
-const themeToggleBtn = document.getElementById('themeToggleBtn');
-const settingsBtn = document.getElementById('settingsBtn');
-const settingsModal = document.getElementById('settingsModal');
-const closeSettingsBtn = document.getElementById('closeSettingsBtn');
-const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-const userNameInput = document.getElementById('userNameInput');
-const timerDurationInput = document.getElementById('timerDurationInput');
-const sortTasksSelect = document.getElementById('sortTasksSelect');
-
-// ===== Load Initial Settings =====
-function loadAppState() {
-  appState.userName = localStorage.getItem(STORAGE_KEYS.userName) || '';
-  appState.timerDuration = parseInt(localStorage.getItem(STORAGE_KEYS.timerDuration)) || 25;
-  appState.darkMode = localStorage.getItem(STORAGE_KEYS.darkMode) === 'true';
-  appState.taskSortMode = localStorage.getItem(STORAGE_KEYS.taskSortMode) || 'newest';
-  
-  // Apply dark mode
-  if (appState.darkMode) {
-    document.body.classList.add('dark-mode');
-    themeToggleBtn.textContent = 'â˜€ï¸';
-  }
-  
-  // Update UI
-  userNameInput.value = appState.userName;
-  timerDurationInput.value = appState.timerDuration;
-  sortTasksSelect.value = appState.taskSortMode;
-  
-  // Update timer display
-  appState.timeRemaining = appState.timerDuration * 60;
-  updateTimerDisplay();
-}
-
-loadAppState();
-
-// ===== Time and Greeting Functions =====
-
-function updateTime() {
-  const now = new Date();
-  
-  // Format time
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  currentTimeEl.textContent = `${hours}:${minutes}:${seconds}`;
-  
-  // Format date
-  const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-  const dateStr = now.toLocaleDateString('en-US', options);
-  currentDateEl.textContent = dateStr;
-  
-  // Update greeting based on time
-  updateGreeting(now.getHours());
-}
-
-function updateGreeting(hour) {
-  let greeting = 'Good Evening';
-  
-  if (hour >= 5 && hour < 12) {
-    greeting = 'Good Morning';
-  } else if (hour >= 12 && hour < 17) {
-    greeting = 'Good Afternoon';
-  } else if (hour >= 17 && hour < 21) {
-    greeting = 'Good Evening';
-  } else {
-    greeting = 'Good Night';
-  }
-  
-  // Add user name if available
-  if (appState.userName) {
-    greeting += ', ' + appState.userName;
-  }
-  
-  greetingTextEl.textContent = greeting;
-}
-
-// Update time immediately and then every second
-updateTime();
-setInterval(updateTime, 1000);
-
-// ===== Theme Toggle =====
-function toggleDarkMode() {
-  appState.darkMode = !appState.darkMode;
-  document.body.classList.toggle('dark-mode');
-  localStorage.setItem(STORAGE_KEYS.darkMode, appState.darkMode);
-  themeToggleBtn.textContent = appState.darkMode ? 'â˜€ï¸' : 'ðŸŒ™';
-}
-
-themeToggleBtn.addEventListener('click', toggleDarkMode);
-
-// ===== Settings Modal =====
-function openSettings() {
-  settingsModal.classList.add('active');
-}
-
-function closeSettings() {
-  settingsModal.classList.remove('active');
-}
-
-function saveSettings() {
-  const newName = userNameInput.value.trim();
-  const newDuration = parseInt(timerDurationInput.value);
-  
-  if (newDuration < 1 || newDuration > 120) {
-    alert('Duration must be between 1 and 120 minutes');
-    return;
-  }
-  
-  appState.userName = newName;
-  appState.timerDuration = newDuration;
-  
-  localStorage.setItem(STORAGE_KEYS.userName, newName);
-  localStorage.setItem(STORAGE_KEYS.timerDuration, newDuration);
-  
-  // Reset timer with new duration
-  appState.timeRemaining = newDuration * 60;
-  updateTimerDisplay();
-  updateTime();
-  
-  closeSettings();
-  alert('Settings saved successfully!');
-}
-
-settingsBtn.addEventListener('click', openSettings);
-closeSettingsBtn.addEventListener('click', closeSettings);
-saveSettingsBtn.addEventListener('click', saveSettings);
-
-// Close modal when clicking outside
-settingsModal.addEventListener('click', (e) => {
-  if (e.target === settingsModal) {
-    closeSettings();
-  }
-});
-
-// ===== Timer Functions =====
-
-function formatTime(seconds) {
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-}
-
-function updateTimerDisplay() {
-  timerDisplayEl.textContent = formatTime(appState.timeRemaining);
-}
-
-function startTimer() {
-  if (appState.isRunning) return;
-  
-  appState.isRunning = true;
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
-  
-  appState.timerInterval = setInterval(() => {
-    if (appState.timeRemaining > 0) {
-      appState.timeRemaining--;
-      updateTimerDisplay();
-    } else {
-      stopTimer();
-      alert('Focus time completed! Great job!');
-    }
-  }, 1000);
-}
-
-function stopTimer() {
-  appState.isRunning = false;
-  clearInterval(appState.timerInterval);
-  appState.timerInterval = null;
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-}
-
-function resetTimer() {
-  stopTimer();
-  appState.timeRemaining = appState.timerDuration * 60;
-  updateTimerDisplay();
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-}
-
-startBtn.addEventListener('click', startTimer);
-stopBtn.addEventListener('click', stopTimer);
-resetBtn.addEventListener('click', resetTimer);
-stopBtn.disabled = true;
-
-updateTimerDisplay();
-
-// ===== Task Functions =====
-
-function getTasks() {
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return;
   try {
-    const tasks = localStorage.getItem(STORAGE_KEYS.tasks);
-    return tasks ? JSON.parse(tasks) : [];
-  } catch (error) {
-    console.error('Error loading tasks:', error);
-    return [];
-  }
-}
-
-function saveTasks(tasks) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.tasks, JSON.stringify(tasks));
-  } catch (error) {
-    console.error('Error saving tasks:', error);
-  }
-}
-
-function sortTasks(tasks) {
-  const sortMode = appState.taskSortMode;
-  let sorted = [...tasks];
-  
-  switch (sortMode) {
-    case 'newest':
-      sorted.sort((a, b) => (b.id || 0) - (a.id || 0));
-      break;
-    case 'oldest':
-      sorted.sort((a, b) => (a.id || 0) - (b.id || 0));
-      break;
-    case 'alphabetical':
-      sorted.sort((a, b) => a.text.localeCompare(b.text));
-      break;
-    case 'completed':
-      sorted.sort((a, b) => a.completed - b.completed);
-      break;
-    default:
-      break;
-  }
-  
-  return sorted;
-}
-
-function renderTasks() {
-  const tasks = getTasks();
-  const sortedTasks = sortTasks(tasks);
-  taskListEl.innerHTML = '';
-  
-  sortedTasks.forEach((task, displayIndex) => {
-    const actualIndex = tasks.findIndex(t => t.id === task.id);
-    
-    const taskItem = document.createElement('li');
-    taskItem.className = `task-item ${task.completed ? 'completed' : ''}`;
-    
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.className = 'task-checkbox';
-    checkbox.checked = task.completed;
-    checkbox.addEventListener('change', () => toggleTaskComplete(actualIndex));
-    
-    const label = document.createElement('span');
-    label.className = 'task-text';
-    label.textContent = task.text;
-    
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'task-delete-btn';
-    deleteBtn.textContent = 'Delete';
-    deleteBtn.addEventListener('click', () => deleteTask(actualIndex));
-    
-    taskItem.appendChild(checkbox);
-    taskItem.appendChild(label);
-    taskItem.appendChild(deleteBtn);
-    taskListEl.appendChild(taskItem);
-  });
-}
-
-function taskExists(text) {
-  const tasks = getTasks();
-  return tasks.some(task => task.text.toLowerCase() === text.toLowerCase());
-}
-
-function addTask() {
-  const text = taskInputEl.value.trim();
-  if (!text) return;
-  
-  // Check for duplicate tasks
-  if (taskExists(text)) {
-    alert('This task already exists!');
-    return;
-  }
-  
-  const tasks = getTasks();
-  const newId = tasks.length > 0 ? Math.max(...tasks.map(t => t.id || 0)) + 1 : 1;
-  tasks.push({ text, completed: false, id: newId });
-  saveTasks(tasks);
-  renderTasks();
-  taskInputEl.value = '';
-  taskInputEl.focus();
-}
-
-function deleteTask(index) {
-  const tasks = getTasks();
-  tasks.splice(index, 1);
-  saveTasks(tasks);
-  renderTasks();
-}
-
-function toggleTaskComplete(index) {
-  const tasks = getTasks();
-  tasks[index].completed = !tasks[index].completed;
-  saveTasks(tasks);
-  renderTasks();
-}
-
-function changeSortMode(mode) {
-  appState.taskSortMode = mode;
-  localStorage.setItem(STORAGE_KEYS.taskSortMode, mode);
-  renderTasks();
-}
-
-addTaskBtn.addEventListener('click', addTask);
-taskInputEl.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') addTask();
-});
-
-sortTasksSelect.addEventListener('change', (e) => {
-  changeSortMode(e.target.value);
-});
-
-renderTasks();
-
-// ===== Quick Links Functions =====
-
-function getQuickLinks() {
-  try {
-    const links = localStorage.getItem(STORAGE_KEYS.quickLinks);
-    return links ? JSON.parse(links) : [];
-  } catch (error) {
-    console.error('Error loading links:', error);
-    return [];
-  }
-}
-
-function saveQuickLinks(links) {
-  try {
-    localStorage.setItem(STORAGE_KEYS.quickLinks, JSON.stringify(links));
-  } catch (error) {
-    console.error('Error saving links:', error);
-  }
-}
-
-function renderQuickLinks() {
-  const links = getQuickLinks();
-  quickLinksContainerEl.innerHTML = '';
-  
-  links.forEach((link, index) => {
-    const linkBtn = document.createElement('a');
-    linkBtn.href = link.url;
-    linkBtn.target = '_blank';
-    linkBtn.className = 'quick-link-btn';
-    linkBtn.textContent = link.name;
-    
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'quick-link-delete';
-    deleteBtn.textContent = 'Ã—';
-    deleteBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      deleteQuickLink(index);
-    });
-    
-    linkBtn.appendChild(deleteBtn);
-    quickLinksContainerEl.appendChild(linkBtn);
-  });
-}
-
-function addQuickLink() {
-  const name = linkNameEl.value.trim();
-  const url = linkUrlEl.value.trim();
-  
-  if (!name || !url) {
-    alert('Please enter both link name and URL');
-    return;
-  }
-  
-  // Validate URL format
-  try {
-    new URL(url);
+    const parsed = JSON.parse(raw);
+    state.transactions = Array.isArray(parsed.transactions) ? parsed.transactions : [];
+    state.categories = Array.isArray(parsed.categories) && parsed.categories.length ? parsed.categories : state.categories;
+    state.spendingLimit = Number(parsed.spendingLimit) || 0;
+    state.sortBy = parsed.sortBy || 'newest';
   } catch {
-    alert('Please enter a valid URL');
+    state.transactions = [];
+  }
+}
+
+function saveData() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    transactions: state.transactions,
+    categories: state.categories,
+    spendingLimit: state.spendingLimit,
+    sortBy: state.sortBy
+  }));
+}
+
+function formatCurrency(amount) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 }).format(amount);
+}
+
+function showError(message) {
+  el.formError.textContent = message;
+  el.formError.classList.remove('hidden');
+}
+
+function hideError() {
+  el.formError.textContent = '';
+  el.formError.classList.add('hidden');
+}
+
+function refreshCategoryOptions() {
+  const selected = el.itemCategory.value;
+  el.itemCategory.innerHTML = '<option value="">Pilih kategori</option>';
+  state.categories.forEach((category) => {
+    const option = document.createElement('option');
+    option.value = category;
+    option.textContent = category;
+    el.itemCategory.appendChild(option);
+  });
+  el.itemCategory.value = state.categories.includes(selected) ? selected : '';
+}
+
+function sortedTransactions() {
+  const items = [...state.transactions];
+  if (state.sortBy === 'amount-desc') items.sort((a, b) => b.amount - a.amount);
+  if (state.sortBy === 'amount-asc') items.sort((a, b) => a.amount - b.amount);
+  if (state.sortBy === 'category') items.sort((a, b) => a.category.localeCompare(b.category, 'id-ID'));
+  if (state.sortBy === 'newest') items.sort((a, b) => b.createdAt - a.createdAt);
+  return items;
+}
+
+function renderTransactions() {
+  const items = sortedTransactions();
+  el.transactionList.innerHTML = '';
+  if (!items.length) {
+    const empty = document.createElement('li');
+    empty.textContent = 'Belum ada transaksi.';
+    empty.className = 'transaction-category';
+    el.transactionList.appendChild(empty);
     return;
   }
-  
-  const links = getQuickLinks();
-  links.push({ name, url });
-  saveQuickLinks(links);
-  renderQuickLinks();
-  linkNameEl.value = '';
-  linkUrlEl.value = '';
-  linkNameEl.focus();
+  items.forEach((trx) => {
+    const li = document.createElement('li');
+    li.className = 'transaction-item';
+
+    const meta = document.createElement('div');
+    meta.className = 'transaction-meta';
+    const name = document.createElement('p');
+    name.className = 'transaction-name';
+    name.textContent = trx.name;
+    const amount = document.createElement('p');
+    amount.className = 'transaction-amount';
+    amount.textContent = formatCurrency(trx.amount);
+    const category = document.createElement('p');
+    category.className = 'transaction-category';
+    category.textContent = trx.category;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'delete-btn';
+    delBtn.type = 'button';
+    delBtn.textContent = 'Hapus';
+    delBtn.addEventListener('click', () => removeTransaction(trx.id));
+
+    meta.append(name, amount, category);
+    li.append(meta, delBtn);
+    el.transactionList.appendChild(li);
+  });
 }
 
-function deleteQuickLink(index) {
-  const links = getQuickLinks();
-  links.splice(index, 1);
-  saveQuickLinks(links);
-  renderQuickLinks();
+function updateBalanceAndLimit() {
+  const total = state.transactions.reduce((sum, t) => sum + t.amount, 0);
+  el.totalBalance.textContent = formatCurrency(total);
+  const overLimit = state.spendingLimit > 0 && total > state.spendingLimit;
+  el.limitNotice.classList.toggle('hidden', !overLimit);
 }
 
-addLinkBtn.addEventListener('click', addQuickLink);
-linkUrlEl.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') addQuickLink();
-});
+function updateChart() {
+  const totals = {};
+  state.transactions.forEach((trx) => {
+    totals[trx.category] = (totals[trx.category] || 0) + trx.amount;
+  });
+  const labels = Object.keys(totals);
+  const values = Object.values(totals);
+  if (!state.chart) {
+    state.chart = new Chart(document.getElementById('expenseChart'), {
+      type: 'pie',
+      data: {
+        labels,
+        datasets: [{
+          data: values,
+          backgroundColor: ['#22c55e', '#0ea5e9', '#f59e0b', '#f43f5e', '#8b5cf6', '#14b8a6']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+    return;
+  }
+  state.chart.data.labels = labels;
+  state.chart.data.datasets[0].data = values;
+  state.chart.update();
+}
 
-renderQuickLinks();
+function removeTransaction(id) {
+  state.transactions = state.transactions.filter((trx) => trx.id !== id);
+  saveData();
+  renderAll();
+}
+
+function addTransaction(event) {
+  event.preventDefault();
+  hideError();
+  const name = el.itemName.value.trim();
+  const amount = Number(el.itemAmount.value);
+  const category = el.itemCategory.value;
+
+  if (!name || !el.itemAmount.value || !category) return showError('Semua kolom wajib diisi.');
+  if (!Number.isFinite(amount) || amount <= 0) return showError('Jumlah harus lebih dari 0.');
+
+  state.transactions.push({
+    id: Date.now(),
+    name,
+    amount,
+    category,
+    createdAt: Date.now()
+  });
+
+  el.form.reset();
+  el.itemCategory.value = '';
+  saveData();
+  renderAll();
+}
+
+function addCustomCategory() {
+  const custom = el.customCategory.value.trim();
+  if (!custom) return;
+  const exists = state.categories.some((c) => c.toLowerCase() === custom.toLowerCase());
+  if (!exists) {
+    state.categories.push(custom);
+    refreshCategoryOptions();
+    saveData();
+  }
+  el.itemCategory.value = custom;
+  el.customCategory.value = '';
+}
+
+function applyTheme() {
+  const dark = localStorage.getItem(THEME_KEY) === 'dark';
+  document.body.classList.toggle('dark', dark);
+  el.themeToggle.textContent = dark ? 'Mode Terang' : 'Mode Gelap';
+}
+
+function toggleTheme() {
+  localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+  applyTheme();
+}
+
+function renderAll() {
+  renderTransactions();
+  updateBalanceAndLimit();
+  updateChart();
+}
+
+function init() {
+  loadData();
+  refreshCategoryOptions();
+  el.sortBy.value = state.sortBy;
+  el.spendingLimit.value = state.spendingLimit || '';
+
+  el.form.addEventListener('submit', addTransaction);
+  el.addCategoryBtn.addEventListener('click', addCustomCategory);
+  el.sortBy.addEventListener('change', (event) => {
+    state.sortBy = event.target.value;
+    saveData();
+    renderTransactions();
+  });
+  el.spendingLimit.addEventListener('input', (event) => {
+    state.spendingLimit = Number(event.target.value) || 0;
+    saveData();
+    updateBalanceAndLimit();
+  });
+  el.themeToggle.addEventListener('click', toggleTheme);
+
+  applyTheme();
+  renderAll();
+}
+
+init();
